@@ -16,7 +16,8 @@ password = "linux"
 
 master_vcpu = 4
 master_memory = 16384
-master_disk_size = 8589934592
+master_disk_size = 6442450944 # 6 G
+#master_disk_size = 8589934592  # 8 G
 
 
 repositories = {

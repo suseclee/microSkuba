@@ -40,16 +40,19 @@ data "template_file" "master_commands" {
 
 data "template_file" "master-cloud-init" {
   template = file("cloud-init/common.tpl")
+  count    = var.masters
 
   vars = {
-    authorized_keys = join("\n", formatlist("  - %s", var.authorized_keys))
-    repositories    = join("\n", data.template_file.master_repositories.*.rendered)
-    register_scc    = join("\n", data.template_file.master_register_scc.*.rendered)
-    register_rmt    = join("\n", data.template_file.master_register_rmt.*.rendered)
-    commands        = join("\n", data.template_file.master_commands.*.rendered)
-    username        = var.username
-    password        = var.password
-    ntp_servers     = join("\n", formatlist("    - %s", var.ntp_servers))
+    authorized_keys    = join("\n", formatlist("  - %s", var.authorized_keys))
+    repositories       = join("\n", data.template_file.master_repositories.*.rendered)
+    register_scc       = join("\n", data.template_file.master_register_scc.*.rendered)
+    register_rmt       = join("\n", data.template_file.master_register_rmt.*.rendered)
+    commands           = join("\n", data.template_file.master_commands.*.rendered)
+    username           = var.username
+    password           = var.password
+    ntp_servers        = join("\n", formatlist("    - %s", var.ntp_servers))
+    hostname           = "${var.stack_name}-master-${count.index}"
+    hostname_from_dhcp = var.hostname_from_dhcp == true ? "yes" : "no"
   }
 }
 
@@ -66,7 +69,7 @@ resource "libvirt_cloudinit_disk" "master" {
   count     = var.masters
   name      = "${var.stack_name}-master-cloudinit-disk-${count.index}"
   pool      = var.pool
-  user_data = data.template_file.master-cloud-init.rendered
+  user_data = data.template_file.master-cloud-init[count.index].rendered
 }
 
 resource "libvirt_domain" "master" {
@@ -75,7 +78,6 @@ resource "libvirt_domain" "master" {
   memory     = var.master_memory
   vcpu       = var.master_vcpu
   cloudinit  = element(libvirt_cloudinit_disk.master.*.id, count.index)
-  depends_on = [libvirt_domain.lb]
 
   cpu = {
     mode = "host-passthrough"
@@ -86,9 +88,9 @@ resource "libvirt_domain" "master" {
   }
 
   network_interface {
-    network_id     = libvirt_network.network.id
+    network_name   = var.network_name
+    network_id     = var.network_name == "" ? libvirt_network.network.0.id : null
     hostname       = "${var.stack_name}-master-${count.index}"
-    addresses      = [cidrhost(var.network_cidr, 512 + count.index)]
     wait_for_lease = true
   }
 
@@ -105,7 +107,7 @@ resource "null_resource" "master_wait_cloudinit" {
   connection {
     host = element(
       libvirt_domain.master.*.network_interface.0.addresses.0,
-      count.index,
+      count.index
     )
     user     = var.username
     password = var.password
@@ -128,7 +130,7 @@ resource "null_resource" "master_reboot" {
       user = var.username
       host = element(
         libvirt_domain.master.*.network_interface.0.addresses.0,
-        count.index,
+        count.index
       )
     }
 
@@ -141,4 +143,3 @@ EOT
 
   }
 }
-
