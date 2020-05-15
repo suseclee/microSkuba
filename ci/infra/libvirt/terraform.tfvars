@@ -3,10 +3,10 @@ libvirt_uri = "qemu:///system"
 pool =  "default"
 image_uri = "SLES15-SP1-JeOS.x86_64-15.1-OpenStack-Cloud-QU1.qcow2"
 stack_name = "clee"
-#network_cidr = "10.17.0.0/22"
-network_cidr = "192.168.0.0/22"
+# This cidr must match with microCaaSP-network cidr
+network_cidr = "192.168.0.1/22"
 
-create_lb=false
+create_lb = false
 masters = 1
 workers = 0
 
@@ -16,15 +16,28 @@ password = "linux"
 
 master_vcpu = 4
 master_memory = 16384
+#master_disk_size = 4294965096 # 4 G
 master_disk_size = 6442450944 # 6 G
 #master_disk_size = 8589934592  # 8 G
 
 
 repositories = {
+       # "caasp_devel": "http://download.suse.de/ibs/Devel:/CaaSP:/4.0/SLE_15_SP1/",
+       # "suse_ca": "http://download.suse.de/ibs/SUSE:/CA/SLE_15_SP1/",
+       # "sle_server_pool": "http://download.suse.de/ibs/SUSE/Products/SLE-Product-SLES/15-SP1/x86_64/product/",
+       # "basesystem_pool": "http://download.suse.de/ibs/SUSE/Products/SLE-Module-Basesystem/15-SP1/x86_64/product/",
+       # "containers_pool": "http://download.suse.de/ibs/SUSE/Products/SLE-Module-Containers/15-SP1/x86_64/product/",
+       # "serverapps_pool": "http://download.suse.de/ibs/SUSE/Products/SLE-Module-Server-Applications/15-SP1/x86_64/product/",
+       # "sle_server_updates": "http://download.suse.de/ibs/SUSE/Updates/SLE-Product-SLES/15-SP1/x86_64/update/",
+       # "basesystem_updates": "http://download.suse.de/ibs/SUSE/Updates/SLE-Module-Basesystem/15-SP1/x86_64/update/",
+       # "containers_updates": "http://download.suse.de/ibs/SUSE/Updates/SLE-Module-Containers/15-SP1/x86_64/update/",
+       # "serverapps_updates": "http://download.suse.de/ibs/SUSE/Updates/SLE-Module-Server-Applications/15-SP1/x86_64/update/"
+
 	caasp_devel = "http://ibs-mirror.prv.suse.net/ibs/Devel:/CaaSP:/4.0/SLE_15_SP1/",
         suse_ca = "http://ibs-mirror.prv.suse.net/ibs/SUSE:/CA/SLE_15_SP1/",
         sle_server_pool = "http://ibs-mirror.prv.suse.net/ibs/SUSE/Products/SLE-Product-SLES/15-SP1/x86_64/product/",
-        basesystem_pool = "http://ibs-mirror.prv.suse.net/ibs/SUSE/Products/SLE-Module-Basesystem/15-SP1/x86_64/product/",
+        basesystem_pool = "http://download.suse.de/ibs/SUSE/Products/SLE-Module-Basesystem/15-SP1/x86_64/product/",
+        #basesystem_pool = "http://ibs-mirror.prv.suse.net/ibs/SUSE/Products/SLE-Module-Basesystem/15-SP1/x86_64/product/",
         containers_pool = "http://ibs-mirror.prv.suse.net/ibs/SUSE/Products/SLE-Module-Containers/15-SP1/x86_64/product/",
         serverapps_pool = "http://ibs-mirror.prv.suse.net/ibs/SUSE/Products/SLE-Module-Server-Applications/15-SP1/x86_64/product/",
         sle_server_updates = "http://ibs-mirror.prv.suse.net/ibs/SUSE/Updates/SLE-Product-SLES/15-SP1/x86_64/update/",
