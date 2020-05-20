@@ -115,7 +115,12 @@ func Init(initConfiguration InitConfiguration) error {
 		return errors.Errorf("cluster configuration directory %q already exists", initConfiguration.ClusterName)
 	}
 
-	scaffoldFilesToWrite := scaffoldFiles
+	scaffoldFilesToWrite := criScaffoldFiles["criconfig"]
+	kubernetesVersion := initConfiguration.KubernetesVersion
+	if kubernetesVersion.Minor() < 18 {
+		scaffoldFilesToWrite = criScaffoldFiles["sysconfig"]
+	}
+
 	if len(initConfiguration.CloudProvider) > 0 {
 		if cloudScaffoldFiles, found := cloudScaffoldFiles[initConfiguration.CloudProvider]; found {
 			scaffoldFilesToWrite = append(scaffoldFilesToWrite, cloudScaffoldFiles...)
@@ -215,11 +220,13 @@ func writeKubeadmInitConf(initConfiguration InitConfiguration) error {
 				CertSANs: []string{initConfiguration.ControlPlaneHost()},
 				ControlPlaneComponent: kubeadmapi.ControlPlaneComponent{
 					ExtraArgs: map[string]string{
-						"oidc-issuer-url":     fmt.Sprintf("https://%s:32000", initConfiguration.ControlPlaneHost()),
-						"oidc-client-id":      "oidc",
-						"oidc-ca-file":        "/etc/kubernetes/pki/ca.crt",
-						"oidc-username-claim": "email",
-						"oidc-groups-claim":   "groups",
+						"oidc-issuer-url":                  fmt.Sprintf("https://%s:32000", initConfiguration.ControlPlaneHost()),
+						"oidc-client-id":                   "oidc",
+						"oidc-ca-file":                     "/etc/kubernetes/pki/ca.crt",
+						"oidc-username-claim":              "email",
+						"oidc-groups-claim":                "groups",
+						"service-account-issuer":           "kubernetes.default.svc",
+						"service-account-signing-key-file": "/etc/kubernetes/pki/sa.key",
 					},
 				},
 			},
@@ -275,11 +282,7 @@ func writeKubeadmJoinMasterConf(initConfiguration InitConfiguration) error {
 			},
 		},
 		ControlPlane: &kubeadmapi.JoinControlPlane{},
-		NodeRegistration: kubeadmapi.NodeRegistrationOptions{
-			Taints: []v1.Taint{}, // enable master node to deploy system pods
-		},
 	}
-
 	if len(initConfiguration.CloudProvider) > 0 {
 		updateJoinConfigurationWithCloudIntegration(&joinCfg, initConfiguration)
 	}
@@ -356,6 +359,24 @@ func updateInitConfigurationWithCloudIntegration(initCfg *kubeadmapi.InitConfigu
 			PathType:  v1.HostPathFileOrCreate,
 		})
 		initCfg.NodeRegistration.KubeletExtraArgs["cloud-config"] = skuba.OpenstackConfigRuntimeFile()
+	case "vsphere":
+		initCfg.APIServer.ExtraArgs["cloud-config"] = skuba.VSphereConfigRuntimeFile()
+		initCfg.APIServer.ExtraVolumes = append(initCfg.APIServer.ExtraVolumes, kubeadmapi.HostPathMount{
+			Name:      "cloud-config",
+			HostPath:  skuba.VSphereConfigRuntimeFile(),
+			MountPath: skuba.VSphereConfigRuntimeFile(),
+			ReadOnly:  true,
+			PathType:  v1.HostPathFileOrCreate,
+		})
+		initCfg.ControllerManager.ExtraArgs["cloud-config"] = skuba.VSphereConfigRuntimeFile()
+		initCfg.ControllerManager.ExtraVolumes = append(initCfg.ControllerManager.ExtraVolumes, kubeadmapi.HostPathMount{
+			Name:      "cloud-config",
+			HostPath:  skuba.VSphereConfigRuntimeFile(),
+			MountPath: skuba.VSphereConfigRuntimeFile(),
+			ReadOnly:  true,
+			PathType:  v1.HostPathFileOrCreate,
+		})
+		initCfg.NodeRegistration.KubeletExtraArgs["cloud-config"] = skuba.VSphereConfigRuntimeFile()
 	}
 }
 
@@ -365,7 +386,10 @@ func updateJoinConfigurationWithCloudIntegration(joinCfg *kubeadmapi.JoinConfigu
 	}
 	joinCfg.NodeRegistration.KubeletExtraArgs["cloud-provider"] = initConfiguration.CloudProvider
 
-	if initConfiguration.CloudProvider == "openstack" {
+	switch initConfiguration.CloudProvider {
+	case "openstack":
 		joinCfg.NodeRegistration.KubeletExtraArgs["cloud-config"] = skuba.OpenstackConfigRuntimeFile()
+	case "vsphere":
+		joinCfg.NodeRegistration.KubeletExtraArgs["cloud-config"] = skuba.VSphereConfigRuntimeFile()
 	}
 }
